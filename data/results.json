@@ -1,0 +1,45 @@
+{
+  "experiment": "Nemotron-Labs-TwoTower-30B-A3B context-tower AR on single DGX Spark (GB10, sm_121a)",
+  "date": "2026-07-04",
+  "platform": {
+    "gpu": "NVIDIA GB10 (DGX Spark), sm_121a, 128 GB unified",
+    "precision": "BF16",
+    "mode": "context-tower autoregressive (single tower)",
+    "vllm_image": "vllm-dspark-runtime:mia-raf-pr1-nvfp4-b (vLLM 0.21.1rc1)",
+    "serving": "stock NemotronHForCausalLM (remapped), Triton MoE + TRITON_ATTN, --enforce-eager",
+    "served_model_name": "nemotron-twotower-30b-bf16-context-ar"
+  },
+  "coherence": {
+    "verdict": "PASS",
+    "note": "fluent accurate prose; NOT the prior HF-Transformers degenerate ' and, and, and' garbage",
+    "example_prompt": "France is a country",
+    "example_output": "in Western Europe with a population of 67 million people. It is the largest country in the European Union and the third largest in Europe. France is a major economic power and a member of the G7, G20..."
+  },
+  "throughput_concurrency": [
+    {"concurrency": 1, "agg_tok_s": 26.3, "e2e_tok_s": 26.0, "per_req_tok_s": 26.3, "avg_ttft_s": 0.093, "total_tokens": 128},
+    {"concurrency": 2, "agg_tok_s": 43.7, "e2e_tok_s": 37.6, "per_req_tok_s": 21.9, "avg_ttft_s": 0.996, "total_tokens": 256},
+    {"concurrency": 4, "agg_tok_s": 56.1, "e2e_tok_s": 52.7, "per_req_tok_s": 14.0, "avg_ttft_s": 0.646, "total_tokens": 512},
+    {"concurrency": 8, "agg_tok_s": 163.7, "e2e_tok_s": 149.8, "per_req_tok_s": 20.5, "avg_ttft_s": 0.598, "total_tokens": 1024}
+  ],
+  "kv_pool": {"tokens": 1030000, "config": "max_model_len 8192, gpu_mem_util 0.6", "concurrency_x": 125},
+  "context_sweep_passkey": [
+    {"target": "6K",   "prompt_tokens": 6042,   "passkey_found": true, "latency_s": 3.4},
+    {"target": "32K",  "prompt_tokens": 32040,  "passkey_found": true, "latency_s": 8.7},
+    {"target": "96K",  "prompt_tokens": 96048,  "passkey_found": true, "latency_s": 37.0},
+    {"target": "128K", "prompt_tokens": 128038, "passkey_found": true, "latency_s": 58.2},
+    {"target": "256K", "prompt_tokens": 256040, "passkey_found": true, "latency_s": 186.3}
+  ],
+  "context_sweep_note": "secret code 739140 at 50% depth; retrieved 100% through 256K (2x the card's documented 128K max)",
+  "eval_fluency": [
+    {"prompt": "capital of Japan", "result": "Tokyo", "pass": true},
+    {"prompt": "train 60mph x 2.5h", "result": "60 x 2.5 = 150 miles (correct LaTeX)", "pass": true},
+    {"prompt": "three primary colors", "result": "red, blue, yellow + correct secondaries", "pass": true},
+    {"prompt": "Eiffel Tower (in French)", "result": "fluent accurate French; Paris, 7e arr., Seine", "pass": true},
+    {"prompt": "why water boils at 100C", "result": "correct atmospheric-pressure explanation", "pass": true}
+  ],
+  "walls_cleared": [
+    {"wall": "HF causal_conv1d sm_121a bug", "symptom": "garbage output", "fix": "serve as stock vLLM (Triton kernels), not HF remote code"},
+    {"wall": "prebuilt FlashAttention-2", "symptom": "cudaErrorUnsupportedPtxVersion", "fix": "--attention-backend TRITON_ATTN (CLI flag)"},
+    {"wall": "CUTLASS FP8-MoE JIT", "symptom": "ninja exit 127 / cicc not found", "fix": "VLLM_USE_FLASHINFER_MOE_FP16=0 (Triton MoE)"}
+  ]
+}
