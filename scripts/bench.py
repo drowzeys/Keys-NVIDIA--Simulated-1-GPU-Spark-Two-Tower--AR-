@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json, time, urllib.request, threading, sys
 
-BASE = "http://10.100.10.3:8000"
+BASE = "http://r3:8000"
 MODEL = "nemotron-twotower-30b-bf16-context-ar"
 
 def stream_one(prompt, max_tokens=128):

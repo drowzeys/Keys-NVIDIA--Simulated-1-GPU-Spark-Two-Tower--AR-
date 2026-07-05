@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys, time, json, urllib.request
 
-BASE = "http://10.100.10.3:8000"
+BASE = "http://r3:8000"
 MODEL = "nemotron-twotower-30b-bf16-context-ar"
 
 def post(path, payload, timeout=120):

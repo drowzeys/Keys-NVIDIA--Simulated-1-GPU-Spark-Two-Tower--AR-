@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import json, urllib.request, time
-BASE="http://10.100.10.3:8000"; MODEL="nemotron-twotower-30b-bf16-context-ar"
+BASE="http://r3:8000"; MODEL="nemotron-twotower-30b-bf16-context-ar"
 def comp(p,mt=16,temp=0.0):
     req=urllib.request.Request(BASE+"/v1/completions",
         data=json.dumps({"model":MODEL,"prompt":p,"max_tokens":mt,"temperature":temp}).encode(),
