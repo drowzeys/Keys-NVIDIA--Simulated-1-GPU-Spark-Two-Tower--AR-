@@ -9,6 +9,34 @@ TwoTower is a block-diffusion two-tower model (frozen AR **context tower** + tra
 This repo serves just the **context tower in AR mode on a single GB10** — the officially
 supported way to run it on one Spark.
 
+## Purpose — what each mode is for
+
+**Single Spark / single GPU (this repo): context-tower AR.** NVIDIA ships three inference
+modes; `--mode ar` is the only one that fits on one GPU, and it is *purposeful*, not a
+consolation prize:
+
+- **It is the ST-AR baseline.** The context tower is the frozen `Nemotron-3-Nano-30B-A3B`
+  backbone, so AR mode is the exact single-tower autoregressive baseline that the diffusion
+  mode's quality (98.7% retention) and speedup (2.42×) are measured *against*. Anyone
+  reproducing NVIDIA's numbers needs this serve first.
+- **It proves the checkpoint + kernels on sm_121a.** Coherent AR output validates the
+  weights, the key remap, and the mamba2/attention kernel path on GB10 before any
+  two-tower work — which is precisely how we used it.
+- **It is a production-grade serve on its own.** 26 tok/s single / 164 tok/s at C8 with
+  256K-context passkey retrieval, from one 128 GB Spark.
+
+**The TRUE Two-Tower requires 2 GPUs — on DGX Spark, that means 2 Sparks.** NVIDIA's
+reference (`place_towers_on_devices("cuda:0", "cuda:1")`) assumes two ~80 GB cards in one
+box: the **context tower** (AR, prefills the prompt and commits blocks, owns the KV/Mamba
+cache) on one device and the **denoiser tower** (mask-diffusion, iteratively unmasks each
+16-token block against the frozen context cache) on the other. A GB10 is one GPU, so the
+diffusion base as NVIDIA envisioned it maps onto **two DGX Sparks — one tower per Spark**,
+with the cross-tower cache traffic (Mamba conv/ssm states + 6 attention layers of KV)
+carried over the 200G fabric instead of NVLink/PCIe.
+
+That true 2-GPU / 2-Spark autoregressive-diffusion implementation is documented in its own
+repo: **[Keys-NVIDIA-Two-Tower-Diffusion--dual-dgx-spark](https://github.com/drowzeys/Keys-NVIDIA-Two-Tower-Diffusion--dual-dgx-spark)**.
+
 ## The key insight
 
 **The context tower *is* the frozen `Nemotron-3-Nano-30B-A3B` backbone.** So instead of the
@@ -127,8 +155,10 @@ data/
 ## Scope & credits
 
 - This is **context-only single-tower AR** (not the full 2-node two-tower diffusion). The
-  forward is now proven numerically correct on GB10 via the vLLM path; the distributed
-  diffusion port is future work.
+  forward is proven numerically correct on GB10 via the vLLM path. The **true two-tower
+  diffusion mode — context tower on one Spark, denoiser tower on a second Spark, over the
+  200G fabric — lives in
+  [Keys-NVIDIA-Two-Tower-Diffusion--dual-dgx-spark](https://github.com/drowzeys/Keys-NVIDIA-Two-Tower-Diffusion--dual-dgx-spark)**.
 - Model: `nvidia/Nemotron-Labs-TwoTower-30B` (NVIDIA Open Model License).
 - Recipe, scripts, and measurements: MIT (see [`LICENSE`](LICENSE)). Validated on a
   DGX-Spark "mia-raf" vLLM image (not included).
